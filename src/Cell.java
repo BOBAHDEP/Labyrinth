@@ -7,6 +7,7 @@ public class Cell{
     public Cell(boolean down, boolean left) {
         this.down = down;
         this.left = left;
+        this.value = ' ';
     }
 
     public char getValue() {
