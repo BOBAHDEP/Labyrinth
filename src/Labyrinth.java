@@ -1,4 +1,6 @@
+import java.util.ArrayList;
 import java.util.InputMismatchException;
+import java.util.List;
 import java.util.Random;
 
 public class Labyrinth implements LabyrinthChangeable {
@@ -32,6 +34,7 @@ public class Labyrinth implements LabyrinthChangeable {
 
     public void printOut() {
         char symbolToPrint;
+        System.out.println("");
         for (int i = 0; i < cells.length; i++) {
             for (int j = 0; j < cells[0].length; j++) {
                 if (cells[i][j].isLeft()) {
@@ -44,6 +47,7 @@ public class Labyrinth implements LabyrinthChangeable {
             }
             System.out.println("");
         }
+        System.out.println("");
     }
 
     public void printOutWithValues() {
@@ -102,7 +106,7 @@ public class Labyrinth implements LabyrinthChangeable {
         cells[x][y].setDown(up);
     }
 
-    public boolean getUp(int x, int y, boolean up) {
+    public boolean getUp(int x, int y) {
         if (x >= getNumberOfCells() || y >= getNumberOfCells() || x < 0 || y < 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -191,39 +195,44 @@ public class Labyrinth implements LabyrinthChangeable {
         int numberOfLocations = numberOfCells * numberOfCells;
         int randX, randY, randNumber;
         int[][] randomSequenceOfCells = res.getRandomSequenceOfCells();
+        randX = randomSequenceOfCells[0][numberOfLocations - 1];
+        randY = randomSequenceOfCells[1][numberOfLocations - 1];
         while (numberOfLocations > 1) {
-            randX = random.nextInt(numberOfCells);
-            randY = random.nextInt(numberOfCells);
             while (true) {
                 randNumber = random.nextInt(4);
-                if (randNumber == 0 && randX > 0) {
+                if (randNumber == 0 && randX > 0 && !res.canGo(randX, randY, -1, 0)) {
                     if (!res.isConnected(randX, randY, randX - 1, randY)) {
                         res.setGate(randX, randY, randX - 1, randY);
                     }
+                    numberOfLocations--;
                     break;
                 }
-                if (randNumber == 1 && randX < numberOfCells - 1) {
+                if (randNumber == 1 && randX < numberOfCells - 1 && !res.canGo(randX, randY, 1, 0)) {
                     if (!res.isConnected(randX, randY, randX + 1, randY)) {
                         res.setGate(randX, randY, randX + 1, randY);
                     }
+                    numberOfLocations--;
                     break;
                 }
-                if (randNumber == 2 && randY > 0) {
+                if (randNumber == 2 && randY > 0 && !res.canGo(randX, randY, 0, -1)) {
                     if (!res.isConnected(randX, randY, randX, randY - 1)) {
                         res.setGate(randX, randY, randX, randY - 1);
                     }
+                    numberOfLocations--;
                     break;
                 }
-                if (randNumber == 3 && randY < numberOfCells - 1) {
+                if (randNumber == 3 && randY < numberOfCells - 1 && !res.canGo(randX, randY, 0, 1)) {
                     if (!res.isConnected(randX, randY, randX, randY + 1)) {
                         res.setGate(randX, randY, randX, randY + 1);
                     }
+                    numberOfLocations--;
                     break;
                 }
             }
-            numberOfLocations--;
+            randX = randomSequenceOfCells[0][numberOfLocations - 1];
+            randY = randomSequenceOfCells[1][numberOfLocations - 1];
         }
-        return null;
+        return res;
     }
 
     private boolean isConnected(int x1, int y1, int x2, int y2) {
@@ -318,9 +327,21 @@ public class Labyrinth implements LabyrinthChangeable {
         return res;
     }
 
-    private int[][] solveRecursive(int x1, int y1, int x2, int y2) { // null, усли пути нет
-        //todo
-        return null;
+    private List<int[]> solveRecursive(int x1, int y1, int x2, int y2) { // null, усли пути нет
+        boolean[][] passedCellsMap = new boolean[getNumberOfCells()][getNumberOfCells()];
+        List<int[]> res = new ArrayList<int[]>();
+        List<int[]> temp = new ArrayList<int[]>();
+        for (int i = 0;i < getNumberOfCells(); i++) {
+            for (int j = 0; j < getNumberOfCells(); j++) {
+                passedCellsMap[i][j] = false;
+            }
+        }
+        logNextStep(x1, y1, temp, x2, y2, passedCellsMap, res);
+        if (!res.isEmpty()) {
+            return res;
+        } else {
+            return null;
+        }
     }
 
     private boolean canGo(int x, int y, int dx, int dy) {   // dx, dy = +-1
@@ -328,33 +349,85 @@ public class Labyrinth implements LabyrinthChangeable {
             throw new IndexOutOfBoundsException();
         }
         if (dx == 1 && dy == 0) {
-            return getDown(x, y);
+            return !getDown(x, y);
         } else if (dx == -1 && dy == 0) {
             if (x == 0) {
                 throw new IndexOutOfBoundsException();
             }
-            return getDown(x - 1, y);
+            return !getDown(x - 1, y);
         } else if (dx == 0 && dy == 1) {
-            return getRight(x, y);
+            return !getRight(x, y);
         } else if (dx == 0 && dy == -1) {
-            return getLeft(x, y);
+            return !getLeft(x, y);
         } else {
             throw new InputMismatchException();
         }
     }
 
-    private int[] whereCanGo(int x, int y) {            //  [вверх, вправо, вниз, налево]  1 - да, -1 - нет
+    private int[] whereCanGo(int x, int y, boolean[][] passedCellsMap) {            //  [вверх, вправо, вниз, налево]  1 - да, -1 - нет
         int[] res = new int[4];
-        res[0] = x > 0 && canGo(x, y, -1, 0) ? 1 : -1;
-        res[1] = y < getNumberOfCells() - 1 && canGo(x, y, 0, 1) ? 1 : -1;
-        res[2] = x < getNumberOfCells() - 1 && canGo(x, y, 1, 0) ? 1 : -1;
-        res[3] = y > 0 && canGo(x, y, 0, -1) ? 1 : -1;
+        res[0] = x > 0 && canGo(x, y, -1, 0) && !passedCellsMap[x - 1][y] ? 1 : -1;
+        res[1] = y < getNumberOfCells() - 1 && canGo(x, y, 0, 1) && !passedCellsMap[x][y + 1] ? 1 : -1;
+        res[2] = x < getNumberOfCells() - 1 && canGo(x, y, 1, 0) && !passedCellsMap[x + 1][y] ? 1 : -1;
+        res[3] = y > 0 && canGo(x, y, 0, -1) && !passedCellsMap[x][y - 1] ? 1 : -1;
         return res;
     }
 
+    private int findUniqueWay(int x, int y, boolean[][] passedCellsMap) {   // 1 - вверх, 2 - вправо, 3 - вниз, 4 - налево, -1 - нет
+        int[] whereCanGo = whereCanGo(x, y, passedCellsMap);
+        if (whereCanGo[0] == 1 && whereCanGo[1] == 0 && whereCanGo[2] == 0 && whereCanGo[3] == 0 && !passedCellsMap[x - 1][y]) {
+            return 1;
+        }
+        if (whereCanGo[0] == 0 && whereCanGo[1] == 1 && whereCanGo[2] == 0 && whereCanGo[3] == 0 && !passedCellsMap[x][y + 1]) {
+            return 2;
+        }
+        if (whereCanGo[0] == 0 && whereCanGo[1] == 0 && whereCanGo[2] == 1 && whereCanGo[3] == 0 && !passedCellsMap[x + 1][y]) {
+            return 3;
+        }
+        if (whereCanGo[0] == 0 && whereCanGo[1] == 0 && whereCanGo[2] == 0 && whereCanGo[3] == 1 && !passedCellsMap[x][y - 1]) {
+            return 3;
+        }
+        return -1;
+    }
+
+    private void logNextStep(int x, int y, List<int[]> logger, int xTarget, int yTarget, boolean[][] passedCellsMap, List<int[]> loggerResult) {
+        List<int[]> derivedLogger = new ArrayList<int[]>(logger);                   // если loggerResult не пуст, то это - путь
+        int[] whereCanGo = whereCanGo(x, y, passedCellsMap);                        // loggerResult должен передаваться пустым
+        int[] logStep = {x, y};
+        derivedLogger.add(logStep);
+        passedCellsMap[x][y] = true;
+        if (x == xTarget && y == yTarget) {
+            loggerResult.clear();
+            for (int[] temp: derivedLogger) {
+                loggerResult.add(temp);
+            }
+            return;
+        }
+        if (whereCanGo[0] == 1) {
+            logNextStep(x - 1, y, derivedLogger, xTarget, yTarget, passedCellsMap, loggerResult);
+        }
+        if (whereCanGo[1] == 1) {
+            logNextStep(x, y + 1, derivedLogger, xTarget, yTarget, passedCellsMap, loggerResult);
+        }
+        if (whereCanGo[2] == 1) {
+            logNextStep(x + 1, y, derivedLogger, xTarget, yTarget, passedCellsMap, loggerResult);
+        }
+        if (whereCanGo[3] == 1) {
+            logNextStep(x, y - 1, derivedLogger, xTarget, yTarget, passedCellsMap, loggerResult);
+        }
+    }
+
+    public void solveLabyrinthRecursive(int x1, int y1, int x2, int y2) {
+        List<int[]> steps = solveRecursive(x1, y1, x2, y2);
+        for (int[] temp: steps) {
+            setValue(temp[0], temp[1], '*');
+        }
+    }
+
     public static void main(String[] args) {
-        Labyrinth labyrinth = generateLabyrinthPrim(5);
-        labyrinth.setValue(2, 2, '*');
+        Labyrinth labyrinth = generateLabyrinthKrascal(5);
+        labyrinth.printOut();
+        labyrinth.solveLabyrinthRecursive(0,0, 4, 4);
         labyrinth.printOutWithValues();
     }
 }
