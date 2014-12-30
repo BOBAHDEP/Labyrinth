@@ -203,30 +203,30 @@ public class Labyrinth implements LabyrinthChangeable {
                 if (randNumber == 0 && randX > 0 && !res.canGo(randX, randY, -1, 0)) {
                     if (!res.isConnected(randX, randY, randX - 1, randY)) {
                         res.setGate(randX, randY, randX - 1, randY);
+                        numberOfLocations--;
+                        break;
                     }
-                    numberOfLocations--;
-                    break;
                 }
                 if (randNumber == 1 && randX < numberOfCells - 1 && !res.canGo(randX, randY, 1, 0)) {
                     if (!res.isConnected(randX, randY, randX + 1, randY)) {
                         res.setGate(randX, randY, randX + 1, randY);
+                        numberOfLocations--;
+                        break;
                     }
-                    numberOfLocations--;
-                    break;
                 }
                 if (randNumber == 2 && randY > 0 && !res.canGo(randX, randY, 0, -1)) {
                     if (!res.isConnected(randX, randY, randX, randY - 1)) {
                         res.setGate(randX, randY, randX, randY - 1);
+                        numberOfLocations--;
+                        break;
                     }
-                    numberOfLocations--;
-                    break;
                 }
                 if (randNumber == 3 && randY < numberOfCells - 1 && !res.canGo(randX, randY, 0, 1)) {
                     if (!res.isConnected(randX, randY, randX, randY + 1)) {
                         res.setGate(randX, randY, randX, randY + 1);
+                        numberOfLocations--;
+                        break;
                     }
-                    numberOfLocations--;
-                    break;
                 }
             }
             randX = randomSequenceOfCells[0][numberOfLocations - 1];
@@ -344,6 +344,93 @@ public class Labyrinth implements LabyrinthChangeable {
         }
     }
 
+    private int[][] solveWave(int x1, int y1, int x2, int y2) {                 // null, усли пути нет
+        int[][] cellsMap = new int[getNumberOfCells()][getNumberOfCells()];     // метод волновой трассировки
+        int numberOfIterations = 1;
+        for (int i = 0;i < getNumberOfCells(); i++) {
+            for (int j = 0; j < getNumberOfCells(); j++) {
+                cellsMap[i][j] = 0;
+            }
+        }
+        cellsMap[x1][y1] = numberOfIterations;
+        c:
+        while (existEmptyPlace(cellsMap)) {
+            for (int i = 0; i < cellsMap.length; i++) {
+                for (int j = 0; j < cellsMap[0].length; j++) {
+                    if (cellsMap[i][j] == numberOfIterations) {
+                        if (i == x2 && j == y2) {
+                            break c;
+                        }
+                        setCellsNumberAround(i, j, cellsMap, numberOfIterations + 1);
+                    }
+                }
+            }
+            numberOfIterations++;
+        }
+
+        if (cellsMap[x2][y2] == 0) {
+            return null;
+        }
+        int[][] res = new int[2][numberOfIterations];
+        res[0][0] = x2;
+        res[1][0] = y2;
+        for (int i = 1; i < numberOfIterations; i++) {
+            res[0][i] = getXNearByNumber(res[0][i - 1], res[1][i - 1], cellsMap, numberOfIterations - i);
+            res[1][i] = getYNearByNumber(res[0][i - 1], res[1][i - 1], cellsMap, numberOfIterations - i);
+        }
+        return res;
+    }
+
+    private int getXNearByNumber(int x, int y, int[][] cellsMap, int number) {
+        if (x > 0 && cellsMap[x - 1][y] == number) {
+            return x - 1;
+        } else {
+            if (x < cellsMap.length - 1 && cellsMap[x + 1][y] == number) {
+                return x + 1;
+            } else {
+                return x;
+            }
+        }
+    }
+
+    private int getYNearByNumber(int x, int y, int[][] cellsMap, int number) {
+        if (y > 0 && cellsMap[x][y - 1] == number) {
+            return y - 1;
+        } else {
+            if (y < cellsMap.length - 1 && cellsMap[x][y + 1] == number) {
+                return y + 1;
+            } else {
+                return y;
+            }
+        }
+    }
+
+    private void setCellsNumberAround(int x, int y, int[][] mapOfCells, int value) {
+        if (x > 0 && mapOfCells[x - 1][y] == 0 && canGo(x, y, -1, 0)) {
+            mapOfCells[x - 1][y] = value;
+        }
+        if (y > 0 && mapOfCells[x][y - 1] == 0 && canGo(x, y, 0, -1)) {
+            mapOfCells[x][y - 1] = value;
+        }
+        if (x < mapOfCells.length - 1 && mapOfCells[x + 1][y] == 0 && canGo(x, y, 1, 0)) {
+            mapOfCells[x + 1][y] = value;
+        }
+        if (y < mapOfCells[0].length - 1 && mapOfCells[x][y + 1] == 0 && canGo(x, y, 0, 1)) {
+            mapOfCells[x][y + 1] = value;
+        }
+    }
+
+    private boolean existEmptyPlace(int[][] cellMap) {
+        for (int i = 0; i < cellMap.length; i++) {
+            for (int j = 0; j < cellMap[0].length; j++) {
+                if (cellMap[i][j] == 0 && (!getDown(i, j) || !getLeft(i, j) || !getRight(i, j) || !getUp(i, j))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private boolean canGo(int x, int y, int dx, int dy) {   // dx, dy = +-1
         if (x >= getNumberOfCells() || y >= getNumberOfCells() || x < 0 || y < 0) {
             throw new IndexOutOfBoundsException();
@@ -366,10 +453,17 @@ public class Labyrinth implements LabyrinthChangeable {
 
     private int[] whereCanGo(int x, int y, boolean[][] passedCellsMap) {            //  [вверх, вправо, вниз, налево]  1 - да, -1 - нет
         int[] res = new int[4];
-        res[0] = x > 0 && canGo(x, y, -1, 0) && !passedCellsMap[x - 1][y] ? 1 : -1;
-        res[1] = y < getNumberOfCells() - 1 && canGo(x, y, 0, 1) && !passedCellsMap[x][y + 1] ? 1 : -1;
-        res[2] = x < getNumberOfCells() - 1 && canGo(x, y, 1, 0) && !passedCellsMap[x + 1][y] ? 1 : -1;
-        res[3] = y > 0 && canGo(x, y, 0, -1) && !passedCellsMap[x][y - 1] ? 1 : -1;
+        if (passedCellsMap == null) {
+            res[0] = x > 0 && canGo(x, y, -1, 0) ? 1 : -1;
+            res[1] = y < getNumberOfCells() - 1 && canGo(x, y, 0, 1) ? 1 : -1;
+            res[2] = x < getNumberOfCells() - 1 && canGo(x, y, 1, 0) ? 1 : -1;
+            res[3] = y > 0 && canGo(x, y, 0, -1) ? 1 : -1;
+        } else {
+            res[0] = x > 0 && canGo(x, y, -1, 0) && !passedCellsMap[x - 1][y] ? 1 : -1;
+            res[1] = y < getNumberOfCells() - 1 && canGo(x, y, 0, 1) && !passedCellsMap[x][y + 1] ? 1 : -1;
+            res[2] = x < getNumberOfCells() - 1 && canGo(x, y, 1, 0) && !passedCellsMap[x + 1][y] ? 1 : -1;
+            res[3] = y > 0 && canGo(x, y, 0, -1) && !passedCellsMap[x][y - 1] ? 1 : -1;
+        }
         return res;
     }
 
@@ -424,10 +518,17 @@ public class Labyrinth implements LabyrinthChangeable {
         }
     }
 
+    public void solveLabyrinthWave(int x1, int y1, int x2, int y2) {
+        int steps[][] = solveWave(x1, y1, x2, y2);
+        for (int i = 0; i < steps[0].length; i++) {
+            setValue(steps[0][i], steps[1][i], '*');
+        }
+    }
+
     public static void main(String[] args) {
         Labyrinth labyrinth = generateLabyrinthKrascal(5);
         labyrinth.printOut();
-        labyrinth.solveLabyrinthRecursive(0,0, 4, 4);
+        labyrinth.solveLabyrinthWave(0, 0, 4, 4);
         labyrinth.printOutWithValues();
     }
 }
